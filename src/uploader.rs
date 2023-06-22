@@ -74,6 +74,9 @@ async fn upload(file_path: &str, file_name: &str, config: &Config, client: &mut 
                     reqwest::StatusCode::OK => {
                         println!("{}", "✅ 上传成功".green());
                     }
+                    reqwest::StatusCode::BAD_GATEWAY => {
+                        continue
+                    }
                     reqwest::StatusCode::UNAUTHORIZED => {
                         eprintln!("{}", "❌ 上传分片失败".red());
                         *client = create_request_instance(config).await;
