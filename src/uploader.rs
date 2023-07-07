@@ -32,11 +32,11 @@ async fn create_request_instance(config: &Config) -> reqwest::Client {
     client
 }
 
-async fn upload_slice(client: &reqwest::Client, slice: &[u8], upload_url: &str, bytes_range: &str) -> reqwest::Response {
+async fn upload_slice(client: &reqwest::Client, slice: &[u8], upload_url: &str, bytes_range: &str) -> Result<reqwest::Response, reqwest::Error> {
     let mut headers = HeaderMap::new();
     headers.insert(CONTENT_LENGTH, HeaderValue::from_str(&format!("{}", slice.len())).unwrap());
     headers.insert(CONTENT_RANGE, HeaderValue::from_str(bytes_range).unwrap());
-    let v = client.put(upload_url).headers(headers).body(slice.to_vec()).send().await.unwrap();
+    let v = client.put(upload_url).headers(headers).body(slice.to_vec()).send().await;
     v
 }
 
@@ -83,29 +83,42 @@ async fn upload(file_path: &str, file_name: &str, config: &Config, client: &mut 
                 let bytes_range = format!("bytes {}-{}/{}", start, end - 1, file_size);
                 
                 let u_ret = upload_slice(client, &file_buffer, upload_url, &bytes_range).await;
-                p_bar.inc(1);
-                match u_ret.status() {
-                    StatusCode::CREATED => {
+                
+                match u_ret {
+                    Ok(r) => {
+                        match r.status() {
+                            StatusCode::CREATED => {
+                                p_bar.inc(1);
+                            }
+                            StatusCode::ACCEPTED => {
+                                p_bar.inc(1);
+                            }
+                            StatusCode::OK => {
+                                p_bar.inc(1);
+                                println!("{}", "✅ 上传成功".green());
+                            }
+                            StatusCode::BAD_GATEWAY => {
+                                continue
+                            }
+                            StatusCode::UNAUTHORIZED => {
+                                eprintln!("{}", "❌ 上传分片失败".red());
+                                *client = create_request_instance(config).await;
+                                continue
+                            }
+                            _ => {
+                                eprintln!("{}", r.status());
+                                eprintln!("{}", r.text().await.unwrap());
+                                eprintln!("{}", "❌ 上传分片失败".red());
+                            }
+                        }
                     }
-                    StatusCode::ACCEPTED => {
-                    }
-                    StatusCode::OK => {
-                        println!("{}", "✅ 上传成功".green());
-                    }
-                    StatusCode::BAD_GATEWAY => {
+                    Err(e) => {
+                        eprintln!("{}", e);
+                        eprintln!("{} {}", "❌ 上传分片失败".red(), "正在重试".yellow());
                         continue
-                    }
-                    StatusCode::UNAUTHORIZED => {
-                        eprintln!("{}", "❌ 上传分片失败".red());
-                        *client = create_request_instance(config).await;
-                        continue
-                    }
-                    _ => {
-                        eprintln!("{}", u_ret.status());
-                        eprintln!("{}", u_ret.text().await.unwrap());
-                        eprintln!("{}", "❌ 上传分片失败".red());
                     }
                 }
+                
                 index += 1;
                 
             }
