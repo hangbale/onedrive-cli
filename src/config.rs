@@ -29,7 +29,6 @@ pub fn get_config() -> Config {
         let config_file = File::open(CONFIG_FILE_PATH).unwrap();
         match serde_yaml::from_reader(config_file) {
             Ok(config @ Config { .. }) => {
-                println!("{:?}", config);
                 config
             }
             Err(e) => {

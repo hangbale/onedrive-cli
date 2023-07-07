@@ -4,6 +4,17 @@ use colored::*;
 use crate::config::Config;
 use crate::auth::get_token;
 use indicatif::ProgressBar;
+use std::io::{ Read };
+use std::fs::File;
+use reqwest::header::{
+    HeaderMap,
+    HeaderValue,
+    CONTENT_TYPE,
+    CONTENT_LENGTH,
+    CONTENT_RANGE,
+    AUTHORIZATION,
+};
+use reqwest::StatusCode;
 
 static SLICE_SIZE: u32 = 5 * 1024 * 1024;
 static MSAPI: &str = "https://graph.microsoft.com/v1.0/";
@@ -11,9 +22,9 @@ static MSAPI: &str = "https://graph.microsoft.com/v1.0/";
 async fn create_request_instance(config: &Config) -> reqwest::Client {
     let token = get_token(config).await;
 
-    let mut headers = reqwest::header::HeaderMap::new();
-    headers.insert(reqwest::header::AUTHORIZATION, reqwest::header::HeaderValue::from_str(&format!("Bearer {}", token)).unwrap());
-    headers.insert(reqwest::header::CONTENT_TYPE, reqwest::header::HeaderValue::from_static("application/json"));
+    let mut headers = HeaderMap::new();
+    headers.insert(AUTHORIZATION, HeaderValue::from_str(&format!("Bearer {}", token)).unwrap());
+    headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
     let client = reqwest::Client::builder()
         .default_headers(headers)
         .build()
@@ -22,9 +33,9 @@ async fn create_request_instance(config: &Config) -> reqwest::Client {
 }
 
 async fn upload_slice(client: &reqwest::Client, slice: &[u8], upload_url: &str, bytes_range: &str) -> reqwest::Response {
-    let mut headers = reqwest::header::HeaderMap::new();
-    headers.insert(reqwest::header::CONTENT_LENGTH, reqwest::header::HeaderValue::from_str(&format!("{}", slice.len())).unwrap());
-    headers.insert(reqwest::header::CONTENT_RANGE, reqwest::header::HeaderValue::from_str(bytes_range).unwrap());
+    let mut headers = HeaderMap::new();
+    headers.insert(CONTENT_LENGTH, HeaderValue::from_str(&format!("{}", slice.len())).unwrap());
+    headers.insert(CONTENT_RANGE, HeaderValue::from_str(bytes_range).unwrap());
     let v = client.put(upload_url).headers(headers).body(slice.to_vec()).send().await.unwrap();
     v
 }
@@ -42,17 +53,20 @@ async fn upload(file_path: &str, file_name: &str, config: &Config, client: &mut 
             "@microsoft.graph.conflictBehavior": "rename"
         }
     );
-    dbg!(&url);
+    
     println!("{} {}", "🚀 开始上传".green(), file_name);
     let v = client.post(url).body(body_data.to_string()).send().await.unwrap();
+
     match v.status() {
-        reqwest::StatusCode::OK => {
+        StatusCode::OK => {
             println!("{} {}", "✅ 创建上传会话成功".green(), file_name);
             let body = v.text().await.unwrap();
             let json: serde_json::Value = serde_json::from_str(&body).unwrap();
             let upload_url = json["uploadUrl"].as_str().unwrap();
-            let file_buffer = std::fs::read(file_path).unwrap();
-
+            
+            let mut file = File::open(file_path).unwrap();
+            // 每次读取 5M
+            let mut file_buffer = vec![0; SLICE_SIZE as usize];
             let mut index = 0;
             let p_bar = ProgressBar::new(slice_count);
             while index < slice_count {
@@ -60,24 +74,28 @@ async fn upload(file_path: &str, file_name: &str, config: &Config, client: &mut 
                 let mut end = (index + 1) * SLICE_SIZE as u64;
                 if end > file_size {
                     end = file_size;
+                    file_buffer = vec![0; (end - start) as usize];
                 }
-                let buffer_slice = &file_buffer[start as usize..end as usize];
+                
+                
+                file.read(&mut file_buffer).unwrap();
+                
                 let bytes_range = format!("bytes {}-{}/{}", start, end - 1, file_size);
                 
-                let u_ret = upload_slice(client, buffer_slice, upload_url, &bytes_range).await;
+                let u_ret = upload_slice(client, &file_buffer, upload_url, &bytes_range).await;
                 p_bar.inc(1);
                 match u_ret.status() {
-                    reqwest::StatusCode::CREATED => {
+                    StatusCode::CREATED => {
                     }
-                    reqwest::StatusCode::ACCEPTED => {
+                    StatusCode::ACCEPTED => {
                     }
-                    reqwest::StatusCode::OK => {
+                    StatusCode::OK => {
                         println!("{}", "✅ 上传成功".green());
                     }
-                    reqwest::StatusCode::BAD_GATEWAY => {
+                    StatusCode::BAD_GATEWAY => {
                         continue
                     }
-                    reqwest::StatusCode::UNAUTHORIZED => {
+                    StatusCode::UNAUTHORIZED => {
                         eprintln!("{}", "❌ 上传分片失败".red());
                         *client = create_request_instance(config).await;
                         continue
