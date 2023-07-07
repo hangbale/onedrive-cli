@@ -12,6 +12,7 @@ onedrive:
     token_endpoint: ""
     ms_graph_scope: ""
     drive: ""
+    folder: ""
 files:
     - ""
 ```
