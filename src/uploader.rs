@@ -126,6 +126,13 @@ async fn upload(file_path: &str, file_name: &str, config: &Config, client: &mut 
             p_bar.finish_and_clear();
             ()
         }
+        StatusCode::UNAUTHORIZED => {
+            eprintln!("{}", v.text().await.unwrap());
+            eprintln!("{} {}", "❌ token失效，正在重试".red(), file_name);
+            *client = create_request_instance(config).await;
+            upload(file_path, file_name, config, client).await;
+            ()
+        }
         _ => {
             eprintln!("{}", v.text().await.unwrap());
             eprintln!("{} {}", "❌ 创建上传会话失败".red(), file_name);
