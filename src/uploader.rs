@@ -109,6 +109,7 @@ async fn upload(file_path: &str, file_name: &str, config: &Config, client: &mut 
                                 eprintln!("{}", r.status());
                                 eprintln!("{}", r.text().await.unwrap());
                                 eprintln!("{}", "❌ 上传分片失败".red());
+                                continue
                             }
                         }
                     }
