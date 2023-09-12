@@ -2,8 +2,6 @@ use reqwest::header::{
     HeaderMap,
     HeaderValue,
     CONTENT_TYPE,
-    CONTENT_LENGTH,
-    CONTENT_RANGE,
     AUTHORIZATION,
 };
 use reqwest::StatusCode;
@@ -37,7 +35,7 @@ impl From<B> for Body {
 
 type ReqBody = B;
 
-static MSAPI: &str = "https://graph.microsoft.com/v1.0/";
+// static MSAPI: &str = "https://graph.microsoft.com/v1.0/";
 
 fn gen_form_data<'a> (appid: &'a str, secret: &'a str, ms_graph_scope: &'a str) -> FormData<'a> {
     let mut form_data = HashMap::new();

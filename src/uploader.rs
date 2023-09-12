@@ -104,7 +104,7 @@ impl<'a> Uploader<'a> {
                         let mut index = 0;
                         
                         let p_bar = ProgressBar::new(slice_count);
-                        print!("{} ", "📦 正在上传".green());
+                        
                         while index < slice_count {
                             let start = index * SLICE_SIZE as u64;
                             let mut end = (index + 1) * SLICE_SIZE as u64;
