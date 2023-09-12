@@ -1,9 +1,9 @@
 mod config;
-mod auth;
 mod uploader;
-
+mod request;
 #[tokio::main]
 async fn main() {
     let cfg = config::get_config();
-    uploader::upload_files(&cfg).await;
+    let mut uploader = uploader::Uploader::new(&cfg).await;
+    uploader.upload_files().await;
 }
