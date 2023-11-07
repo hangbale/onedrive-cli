@@ -33,9 +33,14 @@ impl<'a> Uploader<'a> {
         }
     }
     pub async fn upload_files(&mut self) {
-        for file in &self.config.files {
-            self.read_file(file).await;
+        if let Some(list) = &self.config.parsed_files {
+            for file in list {
+                self.read_file(file).await;
+            }
+        } else {
+            eprintln!("❌ 找不到文件");
         }
+        
     }
     async fn read_file(&mut self, file_path: &str){
         let file_name = Path::new(file_path).file_name();
