@@ -4,7 +4,7 @@ use colored::*;
 use crate::config::Config;
 
 use indicatif::ProgressBar;
-use std::io::{ Read };
+use std::io::{ Read, Seek, SeekFrom };
 use std::fs::File;
 use reqwest::header::{
     HeaderMap,
@@ -119,7 +119,9 @@ impl<'a> Uploader<'a> {
                             }
                             
                             
-                            file.read(&mut file_buffer).unwrap();
+                            file.seek(SeekFrom::Start(start)).unwrap();
+                            file.read_exact(&mut file_buffer).unwrap();
+                        
                             
                             let bytes_range = format!("bytes {}-{}/{}", start, end - 1, file_size);
                             
@@ -139,8 +141,7 @@ impl<'a> Uploader<'a> {
                                         }
                                         _ => {
                                             eprintln!("{}", r.status());
-                                            eprintln!("{}", r.text().await.unwrap());
-                                            eprintln!("{}", "❌ 上传分片失败".red());
+                                            eprintln!("❌ 分片: {} - {}", index, "上传失败".red());
                                             continue
                                         }
                                     }
