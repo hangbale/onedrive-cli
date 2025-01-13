@@ -84,6 +84,7 @@ impl<'a> Request<'a> {
             .await.unwrap();
         let body = res.text().await.unwrap();
         let json: serde_json::Value = serde_json::from_str(&body).unwrap();
+        println!("{}", json);
         let t = json["access_token"].as_str().unwrap().to_string();
         t
     }

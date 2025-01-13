@@ -2,3 +2,5 @@
 sample.mp4
 config.yml
 pm2.json
+.DS_Store
+config.yml.bak.idinr
