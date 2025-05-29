@@ -6,4 +6,5 @@ async fn main() {
     let cfg = config::get_config();
     let mut uploader = uploader::Uploader::new(&cfg).await;
     uploader.upload_files().await;
+    println!("上传完成");
 }
